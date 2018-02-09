@@ -7,21 +7,21 @@
 //
 
 import UIKit
-import CoreData
+import RealmSwift
 
 class CatagoryViewController: UITableViewController {
     
-    // get the 小白板， 相当于github的staging area
-    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+    let realm = try! Realm()
     
-    var categories = [Category]()
+    var categories : Results<Category>?
     
 
     override func viewDidLoad() {
-        
-        
+       
         print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
+        
         loadCategory()
+        
         super.viewDidLoad()
     }
 
@@ -33,20 +33,20 @@ class CatagoryViewController: UITableViewController {
         var textField = UITextField()
         
         alert.addTextField { (alertTextField) in
+            
             alertTextField.placeholder = "new category name"
+            
             textField = alertTextField
         }
         
         let alertAction = UIAlertAction(title: "Add", style: .default) { (UIAlertAction) in
             
-            let newCategory = Category(context: self.context)
+            let newCategory = Category()
             
             newCategory.name = textField.text!
             
-            self.categories.append(newCategory)
-            
             // save new category here
-            self.saveCategory()
+            self.save(category: newCategory)
         }
         
         alert.addAction(alertAction)
@@ -59,20 +59,21 @@ class CatagoryViewController: UITableViewController {
     
     // MARK: - TableView Datasource Methods
     override func numberOfSections(in tableView: UITableView) -> Int {
+        
         return 1
     }
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return categories.count
+        
+        return categories?.count ?? 1 //Nil Coalescing Operator
+        
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
         let cell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
         
-        let category = categories[indexPath.row]
-        
-        cell.textLabel?.text = category.name
+        cell.textLabel?.text = categories?[indexPath.row].name ?? "No Categories Added"
         
         return cell
     }
@@ -85,35 +86,41 @@ class CatagoryViewController: UITableViewController {
     }
     
     override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
+        
         let destinationVC = segue.destination as! TodoListViewController
         
         if let indexPath = tableView.indexPathForSelectedRow {
-            destinationVC.selectedCategory = categories[indexPath.row]
+            
+            destinationVC.selectedCategory = categories?[indexPath.row]
+            
         }
-        
+   
     }
     
     
     // MARK: - Data Manipulation
     
-    func saveCategory(){
+    func save(category: Category){
         do{
-            try context.save()
+            try realm.write {
+                
+                realm.add(category)
+            }
             print("Save successfully")
+            
         } catch {
+            
             print("Error saving new category \(error)")
         }
         
         self.tableView.reloadData()
     }
     
-    func loadCategory( with request: NSFetchRequest<Category> = Category.fetchRequest() ){
+    func loadCategory(){
         
-        do{
-            categories = try context.fetch(request)
-        } catch {
-            print("loading data error \(error)")
-        }
+        categories = realm.objects(Category.self)
+    
+        self.tableView.reloadData()
     }
     
     
